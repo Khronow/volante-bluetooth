@@ -1,0 +1,52 @@
+name: Crear APK Android
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'VolanteAndroid_proyecto_corregido.zip'
+      - '.github/workflows/build-apk.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Descargar archivos
+        uses: actions/checkout@v4
+
+      - name: Preparar Java y dependencias
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git zip unzip openjdk-17-jdk \
+            autoconf libtool pkg-config zlib1g-dev libncurses-dev \
+            cmake libffi-dev libssl-dev automake gettext
+
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Descomprimir proyecto
+        run: |
+          mkdir proyecto
+          unzip VolanteAndroid_proyecto_corregido.zip -d proyecto
+          find proyecto -name buildozer.spec
+
+      - name: Instalar Buildozer
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install buildozer cython==0.29.34
+
+      - name: Compilar APK
+        run: |
+          APP_DIR="$(dirname "$(find proyecto -name buildozer.spec -print -quit)")"
+          cd "$APP_DIR"
+          buildozer -v android debug
+
+      - name: Guardar APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: volante-bluetooth-apk
+          path: proyecto/**/bin/*.apk
+          if-no-files-found: error
