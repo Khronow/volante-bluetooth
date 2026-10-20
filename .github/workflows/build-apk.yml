@@ -1,3 +1,4 @@
+
 name: Crear APK Android
 
 on:
@@ -10,6 +11,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
+
     steps:
       - name: Descargar archivos
         uses: actions/checkout@v4
@@ -17,9 +19,7 @@ jobs:
       - name: Preparar Java y dependencias
         run: |
           sudo apt-get update
-          sudo apt-get install -y git zip unzip openjdk-17-jdk \
-            autoconf libtool pkg-config zlib1g-dev libncurses-dev \
-            cmake libffi-dev libssl-dev automake gettext
+          sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev cmake libffi-dev libssl-dev automake gettext
 
       - name: Preparar Python
         uses: actions/setup-python@v5
@@ -30,7 +30,13 @@ jobs:
         run: |
           mkdir proyecto
           unzip VolanteAndroid_proyecto_corregido.zip -d proyecto
-          find proyecto -name buildozer.spec
+          SPEC="$(find proyecto -name buildozer.spec -print -quit)"
+          if [ -z "$SPEC" ]; then
+            echo "No se encontró buildozer.spec"
+            exit 1
+          fi
+          sed -i 's/^android.minapi = 23/android.minapi = 24/' "$SPEC"
+          grep -E '^(android.minapi|android.api|android.ndk) *=' "$SPEC"
 
       - name: Instalar Buildozer
         run: |
@@ -39,14 +45,15 @@ jobs:
 
       - name: Compilar APK
         run: |
-          APP_DIR="$(dirname "$(find proyecto -name buildozer.spec -print -quit)")"
+          SPEC="$(find proyecto -name buildozer.spec -print -quit)"
+          APP_DIR="$(dirname "$SPEC")"
           cd "$APP_DIR"
           buildozer -v android debug
 
       - name: Guardar APK
-        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: volante-bluetooth-apk
+          name: VolanteAndroid-APK
           path: proyecto/**/bin/*.apk
           if-no-files-found: error
+          
